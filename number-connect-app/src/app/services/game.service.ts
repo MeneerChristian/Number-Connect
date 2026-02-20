@@ -267,6 +267,22 @@ export class GameService {
       this.stage++;
       this.savePersistentData();
       this.updateStats();
+
+      // Briefly show stage complete, then auto-advance
+      this.saveGameState();
+      this.gameStateSubject.next({
+        grid: this.grid.map(r => r.map(c => ({ ...c }))),
+        columns: this.COLS,
+        score: this.currentScore,
+        time: 0,
+        isGameOver: true,
+        noMovesLeft: false
+      });
+
+      setTimeout(() => {
+        this.advanceStage();
+      }, 1500);
+      return;
     }
 
     this.saveGameState();
@@ -278,9 +294,50 @@ export class GameService {
       columns: this.COLS,
       score: this.currentScore,
       time: 0,
-      isGameOver: isWin,
+      isGameOver: false,
       noMovesLeft: noMoves
     });
+  }
+
+  private advanceStage(): void {
+    this.grid = [];
+    this.comboCount = 0;
+    this.hasAwardedWin = false;
+    this.addsRemaining = 3;
+    this.initNumbersCleared();
+
+    const TOTAL_STARTING_CELLS = 42;
+    const values = this.generateShuffledValues(TOTAL_STARTING_CELLS);
+    let cellsCreated = 0;
+
+    for (let r = 0; cellsCreated < TOTAL_STARTING_CELLS; r++) {
+      const row: Cell[] = [];
+      for (let c = 0; c < this.COLS && cellsCreated < TOTAL_STARTING_CELLS; c++) {
+        row.push({
+          row: r,
+          col: c,
+          value: values[cellsCreated],
+          isOccupied: true,
+          wasEverOccupied: true
+        });
+        cellsCreated++;
+      }
+      if (row.length < this.COLS) {
+        const rIdx = r;
+        for (let c = row.length; c < this.COLS; c++) {
+          row.push({
+            row: rIdx,
+            col: c,
+            value: null,
+            isOccupied: false,
+            wasEverOccupied: false
+          });
+        }
+      }
+      this.grid.push(row);
+    }
+    this.updateState();
+    this.updateStats();
   }
 
   private checkWin(): boolean {

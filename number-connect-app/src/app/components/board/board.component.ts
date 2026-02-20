@@ -71,12 +71,11 @@ import { Observable, Subscription } from 'rxjs';
         </svg>
       </div>
 
-      <!-- Game Over overlay -->
+      <!-- Stage Complete overlay -->
       <div class="game-over-overlay" *ngIf="state.isGameOver">
         <div class="game-over-card">
-          <div class="game-over-title">Board Cleared!</div>
+          <div class="game-over-title">Stage Complete!</div>
           <div class="game-over-score">Score: {{ state.score }}</div>
-          <button class="new-game-button" (click)="onNewGame()">New Game</button>
         </div>
       </div>
 
