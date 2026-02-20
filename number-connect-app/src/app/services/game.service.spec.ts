@@ -6,6 +6,12 @@ describe('GameService', () => {
   let service: GameService;
 
   beforeEach(() => {
+    try {
+      localStorage.removeItem('numberConnect_gameState');
+      localStorage.removeItem('numberConnect_stars');
+      localStorage.removeItem('numberConnect_stage');
+      localStorage.removeItem('numberConnect_topScore');
+    } catch {}
     TestBed.configureTestingModule({});
     service = TestBed.inject(GameService);
   });
