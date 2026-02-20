@@ -57,16 +57,15 @@ import { Observable, Subscription } from 'rxjs';
               </feMerge>
             </filter>
           </defs>
-          <line
-            [attr.x1]="getPointX(matchPath[0])"
-            [attr.y1]="getPointY(matchPath[0])"
-            [attr.x2]="getPointX(matchPath[matchPath.length - 1])"
-            [attr.y2]="getPointY(matchPath[matchPath.length - 1])"
+          <polyline
+            [attr.points]="getPolylinePoints(matchPath)"
             class="match-line"
+            fill="none"
             stroke="var(--color-primary)"
             [attr.stroke-width]="0.06"
             stroke-opacity="0.7"
             stroke-linecap="round"
+            stroke-linejoin="round"
             filter="url(#glow)"
           />
         </svg>
@@ -530,5 +529,9 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   getPointY(point: Point): number {
     return point.row * (this.cellUnit + this.gapUnit) + this.cellUnit / 2;
+  }
+
+  getPolylinePoints(path: Path): string {
+    return path.map((p) => `${this.getPointX(p)},${this.getPointY(p)}`).join(' ');
   }
 }
