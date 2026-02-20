@@ -79,6 +79,15 @@ import { Observable, Subscription } from 'rxjs';
           <button class="new-game-button" (click)="onNewGame()">New Game</button>
         </div>
       </div>
+
+      <!-- No Moves Left overlay -->
+      <div class="game-over-overlay" *ngIf="state.noMovesLeft && !state.isGameOver">
+        <div class="game-over-card">
+          <div class="no-moves-title">No Moves Left</div>
+          <div class="game-over-score">Score: {{ state.score }}</div>
+          <button class="new-game-button" (click)="onNewGame()">New Game</button>
+        </div>
+      </div>
     </div>
   `,
   styles: [
@@ -220,6 +229,13 @@ import { Observable, Subscription } from 'rxjs';
         font-size: 28px;
         font-weight: 700;
         color: var(--color-success);
+        margin-bottom: 8px;
+      }
+
+      .no-moves-title {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--color-error);
         margin-bottom: 8px;
       }
 

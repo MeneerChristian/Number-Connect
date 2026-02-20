@@ -19,6 +19,7 @@ export interface GameState {
   score: number;
   time: number;
   isGameOver: boolean;
+  noMovesLeft: boolean;
 }
 
 export interface MatchEvent {

@@ -25,7 +25,8 @@ export class GameService {
     columns: this.COLS,
     score: 0,
     time: 0,
-    isGameOver: false
+    isGameOver: false,
+    noMovesLeft: false
   });
 
   public gameState$ = this.gameStateSubject.asObservable();
@@ -270,17 +271,42 @@ export class GameService {
 
     this.saveGameState();
 
+    const noMoves = !isWin && !this.hasMovesAvailable() && this.addsRemaining <= 0;
+
     this.gameStateSubject.next({
       grid: this.grid.map(r => r.map(c => ({ ...c }))),
       columns: this.COLS,
       score: this.currentScore,
       time: 0,
-      isGameOver: isWin
+      isGameOver: isWin,
+      noMovesLeft: noMoves
     });
   }
 
   private checkWin(): boolean {
     return this.grid.every(row => row.every(cell => !cell.isOccupied));
+  }
+
+  private hasMovesAvailable(): boolean {
+    for (let r1 = 0; r1 < this.grid.length; r1++) {
+      for (let c1 = 0; c1 < this.COLS; c1++) {
+        if (!this.grid[r1][c1].isOccupied) continue;
+        for (let r2 = 0; r2 < this.grid.length; r2++) {
+          for (let c2 = 0; c2 < this.COLS; c2++) {
+            if (r1 === r2 && c1 === c2) continue;
+            if (!this.grid[r2][c2].isOccupied) continue;
+            const v1 = this.grid[r1][c1].value!;
+            const v2 = this.grid[r2][c2].value!;
+            if ((v1 === v2) || (v1 + v2 === 10)) {
+              if (this.findPath({ row: r1, col: c1 }, { row: r2, col: c2 })) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+    return false;
   }
 
   public tryMatch(p1: Point, p2: Point): boolean {
