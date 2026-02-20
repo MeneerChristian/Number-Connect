@@ -10,134 +10,157 @@ import { GameStats } from '../../models/game.models';
   imports: [CommonModule],
   template: `
     <div class="bottom-controls" *ngIf="stats$ | async as stats">
-      <button class="control-button add-button" 
-              (click)="onAddClick()"
-              [disabled]="stats.addsRemaining <= 0"
-              aria-label="Add numbers">
+      <button
+        class="control-button add-button"
+        (click)="onAddClick()"
+        [disabled]="stats.addsRemaining <= 0"
+        aria-label="Add numbers"
+      >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
         </svg>
-        <span class="badge" *ngIf="stats.addsRemaining > 0">{{ stats.addsRemaining }}</span>
+        <span class="badge add-badge" *ngIf="stats.addsRemaining > 0">{{
+          stats.addsRemaining
+        }}</span>
       </button>
-      
-      <button class="control-button hint-button" 
-              (click)="onHintClick()"
-              [disabled]="stats.hintsRemaining <= 0"
-              aria-label="Get hint">
+
+      <button
+        class="control-button hint-button"
+        (click)="onHintClick()"
+        [disabled]="stats.stars < stats.hintCost"
+        aria-label="Get hint"
+      >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M9 21c0 .5.4 1 1 1h4c.6 0 1-.5 1-1v-1H9v1zm3-19C8.1 2 5 5.1 5 9c0 2.4 1.2 4.5 3 5.7V17c0 .5.4 1 1 1h6c.6 0 1-.5 1-1v-2.3c1.8-1.3 3-3.4 3-5.7 0-3.9-3.1-7-7-7z"/>
+          <path
+            d="M9 21c0 .5.4 1 1 1h4c.6 0 1-.5 1-1v-1H9v1zm3-19C8.1 2 5 5.1 5 9c0 2.4 1.2 4.5 3 5.7V17c0 .5.4 1 1 1h6c.6 0 1-.5 1-1v-2.3c1.8-1.3 3-3.4 3-5.7 0-3.9-3.1-7-7-7z"
+          />
         </svg>
-        <span class="badge" *ngIf="stats.hintsRemaining > 0">{{ stats.hintsRemaining }}</span>
+        <span class="badge hint-badge">
+          <svg class="badge-star" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          {{ stats.hintCost }}
+        </span>
       </button>
     </div>
   `,
-  styles: [`
-    .bottom-controls {
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      height: 80px;
-      padding: 16px 24px;
-      background: var(--color-background);
-      border-top: 1px solid var(--color-border);
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 5;
-    }
-    
-    .control-button {
-      position: relative;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      border: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all var(--duration-fast);
-      background: var(--color-background);
-      box-shadow: var(--shadow-md);
-    }
-    
-    .control-button:hover:not(:disabled) {
-      transform: scale(0.95);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .control-button:active:not(:disabled) {
-      transform: scale(0.90);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    }
-    
-    .control-button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      background: #E0E0E0;
-    }
-    
-    .control-button svg {
-      width: 28px;
-      height: 28px;
-    }
-    
-    .add-button {
-      background: var(--color-primary);
-      color: white;
-      box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4);
-    }
-    
-    .add-button:hover:not(:disabled) {
-      box-shadow: 0 2px 4px rgba(33, 150, 243, 0.4);
-    }
-    
-    .hint-button {
-      background: #FFC107;
-      color: white;
-      box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4);
-    }
-    
-    .hint-button:hover:not(:disabled) {
-      box-shadow: 0 2px 4px rgba(255, 193, 7, 0.4);
-    }
-    
-    .badge {
-      position: absolute;
-      top: -2px;
-      right: -2px;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: var(--color-primary);
-      color: white;
-      font-size: 11px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid var(--color-background);
-    }
-    
-    .hint-button .badge {
-      background: #4CAF50;
-    }
-  `]
+  styles: [
+    `
+      .bottom-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 48px;
+        height: 80px;
+        padding: 12px 24px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        background: var(--color-background);
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 5;
+      }
+
+      .control-button {
+        position: relative;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all var(--duration-fast);
+      }
+
+      .control-button:hover:not(:disabled) {
+        transform: scale(0.95);
+      }
+
+      .control-button:active:not(:disabled) {
+        transform: scale(0.9);
+      }
+
+      .control-button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .control-button svg {
+        width: 28px;
+        height: 28px;
+      }
+
+      .add-button {
+        background: var(--color-btn-add-bg);
+        color: var(--color-primary);
+        box-shadow: var(--shadow-primary);
+      }
+
+      .add-button:disabled {
+        background: var(--color-btn-disabled-bg);
+        color: var(--color-btn-disabled-color);
+      }
+
+      .hint-button {
+        background: var(--color-surface);
+        color: var(--color-primary);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .hint-button:disabled {
+        background: var(--color-btn-disabled-bg);
+        color: var(--color-btn-disabled-color);
+      }
+
+      .badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        min-width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        border: 2px solid var(--color-background);
+      }
+
+      .add-badge {
+        background: var(--color-primary);
+      }
+
+      .hint-badge {
+        background: #ffa000;
+        gap: 1px;
+      }
+
+      .badge-star {
+        width: 10px;
+        height: 10px;
+        fill: white;
+      }
+    `,
+  ],
 })
 export class BottomControlsComponent {
   stats$: Observable<GameStats>;
-  
+
   constructor(private gameService: GameService) {
     this.stats$ = this.gameService.stats$;
   }
-  
+
   onAddClick(): void {
     this.gameService.addNumbers();
   }
-  
+
   onHintClick(): void {
-    const hint = this.gameService.getHint();
-    // The hint will be handled by the board component through the service
+    this.gameService.getHint();
   }
 }

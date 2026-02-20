@@ -35,11 +35,12 @@ export interface AnimationEvent {
 
 export interface GameStats {
   currentScore: number;
+  topScore: number;
   stage: number;
   numbersCleared: {
     [key: number]: number; // Count for each number 1-9
   };
-  allTimeScore: number;
-  hintsRemaining: number;
+  stars: number;
+  hintCost: number;
   addsRemaining: number;
 }

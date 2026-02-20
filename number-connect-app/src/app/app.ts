@@ -32,6 +32,12 @@ import { BottomControlsComponent } from './components/bottom-controls/bottom-con
       background: var(--color-background);
       overflow: hidden;
     }
+
+    app-board {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
   `]
 })
 export class App {

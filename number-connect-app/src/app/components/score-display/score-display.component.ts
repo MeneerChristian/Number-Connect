@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GameService } from '../../services/game.service';
 import { Subscription } from 'rxjs';
@@ -15,27 +15,27 @@ import { GameStats } from '../../models/game.models';
   `,
   styles: [`
     .score-display {
-      height: 80px;
+      height: 64px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: var(--color-background);
     }
-    
+
     .score-number {
-      font-size: 48px;
+      font-size: 40px;
       font-weight: 700;
-      line-height: 1.2;
+      line-height: 1;
       letter-spacing: -0.5px;
-      color: var(--color-primary);
+      color: var(--color-text-primary);
       font-family: 'Roboto', sans-serif;
       transition: transform var(--duration-medium) ease-out;
     }
-    
+
     .score-number.animate {
       animation: score-pulse 0.4s ease-out;
     }
-    
+
     @keyframes score-pulse {
       0% { transform: scale(1); }
       50% { transform: scale(1.1); }
@@ -48,15 +48,18 @@ export class ScoreDisplayComponent implements OnInit, OnDestroy {
   private targetScore = 0;
   private animationFrame?: number;
   private subscription?: Subscription;
-  
-  constructor(private gameService: GameService) {}
-  
+
+  constructor(
+    private gameService: GameService,
+    private cdr: ChangeDetectorRef
+  ) {}
+
   ngOnInit(): void {
     this.subscription = this.gameService.stats$.subscribe((stats: GameStats) => {
       this.animateScore(stats.currentScore);
     });
   }
-  
+
   ngOnDestroy(): void {
     if (this.subscription) {
       this.subscription.unsubscribe();
@@ -65,34 +68,35 @@ export class ScoreDisplayComponent implements OnInit, OnDestroy {
       cancelAnimationFrame(this.animationFrame);
     }
   }
-  
+
   private animateScore(newScore: number): void {
     if (this.animationFrame) {
       cancelAnimationFrame(this.animationFrame);
     }
-    
+
     this.targetScore = newScore;
     const startScore = this.displayScore;
     const difference = this.targetScore - startScore;
-    const duration = 400; // ms
+    const duration = 400;
     const startTime = performance.now();
-    
+
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
-      // Ease-out function
+
       const easeOut = 1 - Math.pow(1 - progress, 3);
-      
+
       this.displayScore = Math.round(startScore + (difference * easeOut));
-      
+      this.cdr.detectChanges();
+
       if (progress < 1) {
         this.animationFrame = requestAnimationFrame(animate);
       } else {
         this.displayScore = this.targetScore;
+        this.cdr.detectChanges();
       }
     };
-    
+
     this.animationFrame = requestAnimationFrame(animate);
   }
 }

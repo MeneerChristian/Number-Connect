@@ -13,10 +13,12 @@ export class GameService {
   private currentScore = 0;
   private stage = 1;
   private numbersCleared: { [key: number]: number } = {};
-  private allTimeScore = 0;
-  private hintsRemaining = 5;
+  private stars = 0;
+  private topScore = 0;
   private addsRemaining = 3;
   private comboCount = 0;
+  private hasAwardedWin = false;
+  private readonly HINT_COST = 1;
 
   private gameStateSubject = new BehaviorSubject<GameState>({
     grid: [],
@@ -33,30 +35,98 @@ export class GameService {
 
   private matchEventSubject = new Subject<MatchEvent>();
   public matchEvent$ = this.matchEventSubject.asObservable();
+
+  private hintSubject = new Subject<[Point, Point]>();
+  public hint$ = this.hintSubject.asObservable();
   
   private statsSubject = new BehaviorSubject<GameStats>({
     currentScore: 0,
+    topScore: 0,
     stage: 1,
     numbersCleared: {},
-    allTimeScore: 0,
-    hintsRemaining: 5,
+    stars: 0,
+    hintCost: 1,
     addsRemaining: 3
   });
   public stats$ = this.statsSubject.asObservable();
 
   constructor() {
-    this.loadAllTimeScore();
+    this.loadPersistentData();
     this.initNumbersCleared();
-    this.initGame();
+    if (!this.loadGameState()) {
+      this.initGame();
+    }
   }
-  
-  private loadAllTimeScore(): void {
-    const saved = localStorage.getItem('numberMatchAllTimeScore');
-    this.allTimeScore = saved ? parseInt(saved, 10) : 0;
+
+  private loadPersistentData(): void {
+    try {
+      const savedStars = localStorage.getItem('numberConnect_stars');
+      this.stars = savedStars ? parseInt(savedStars, 10) : 0;
+      const savedStage = localStorage.getItem('numberConnect_stage');
+      this.stage = savedStage ? parseInt(savedStage, 10) : 1;
+      const savedTopScore = localStorage.getItem('numberConnect_topScore');
+      this.topScore = savedTopScore ? parseInt(savedTopScore, 10) : 0;
+    } catch {
+      this.stars = 0;
+      this.stage = 1;
+      this.topScore = 0;
+    }
   }
-  
-  private saveAllTimeScore(): void {
-    localStorage.setItem('numberMatchAllTimeScore', this.allTimeScore.toString());
+
+  private savePersistentData(): void {
+    try {
+      localStorage.setItem('numberConnect_stars', this.stars.toString());
+      localStorage.setItem('numberConnect_stage', this.stage.toString());
+      localStorage.setItem('numberConnect_topScore', this.topScore.toString());
+    } catch {
+      // localStorage not available (e.g., in tests)
+    }
+  }
+
+  private saveGameState(): void {
+    try {
+      const state = {
+        grid: this.grid,
+        currentScore: this.currentScore,
+        comboCount: this.comboCount,
+        addsRemaining: this.addsRemaining,
+        hasAwardedWin: this.hasAwardedWin,
+      };
+      localStorage.setItem('numberConnect_gameState', JSON.stringify(state));
+    } catch {
+      // localStorage not available
+    }
+  }
+
+  private loadGameState(): boolean {
+    try {
+      const saved = localStorage.getItem('numberConnect_gameState');
+      if (!saved) return false;
+
+      const state = JSON.parse(saved);
+      if (!state.grid || !Array.isArray(state.grid) || state.grid.length === 0) return false;
+
+      this.grid = state.grid;
+      this.currentScore = state.currentScore ?? 0;
+      this.comboCount = state.comboCount ?? 0;
+      this.addsRemaining = state.addsRemaining ?? 3;
+      this.hasAwardedWin = state.hasAwardedWin ?? false;
+
+      this.updateNumbersCleared();
+      this.updateState();
+      this.updateStats();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private clearGameState(): void {
+    try {
+      localStorage.removeItem('numberConnect_gameState');
+    } catch {
+      // localStorage not available
+    }
   }
   
   private initNumbersCleared(): void {
@@ -66,12 +136,17 @@ export class GameService {
   }
   
   private updateStats(): void {
+    if (this.currentScore > this.topScore) {
+      this.topScore = this.currentScore;
+      this.savePersistentData();
+    }
     this.statsSubject.next({
       currentScore: this.currentScore,
+      topScore: this.topScore,
       stage: this.stage,
       numbersCleared: { ...this.numbersCleared },
-      allTimeScore: this.allTimeScore,
-      hintsRemaining: this.hintsRemaining,
+      stars: this.stars,
+      hintCost: this.HINT_COST,
       addsRemaining: this.addsRemaining
     });
   }
@@ -80,19 +155,22 @@ export class GameService {
     this.grid = [];
     this.currentScore = 0;
     this.comboCount = 0;
+    this.hasAwardedWin = false;
     this.initNumbersCleared();
-    
+
     const TOTAL_STARTING_CELLS = 42;
+
+    // Generate values then shuffle to break up adjacent matches
+    const values = this.generateShuffledValues(TOTAL_STARTING_CELLS);
     let cellsCreated = 0;
 
     for (let r = 0; cellsCreated < TOTAL_STARTING_CELLS; r++) {
       const row: Cell[] = [];
       for (let c = 0; c < this.COLS && cellsCreated < TOTAL_STARTING_CELLS; c++) {
-        const val = Math.floor(Math.random() * 9) + 1;
         row.push({
           row: r,
           col: c,
-          value: val,
+          value: values[cellsCreated],
           isOccupied: true,
           wasEverOccupied: true
         });
@@ -117,13 +195,87 @@ export class GameService {
     this.updateStats();
   }
 
+  private generateShuffledValues(count: number): number[] {
+    const values: number[] = [];
+    for (let i = 0; i < count; i++) {
+      values.push(Math.floor(Math.random() * 9) + 1);
+    }
+
+    // Multiple passes: swap adjacent matchable pairs to distant positions
+    const cols = this.COLS;
+    for (let pass = 0; pass < 3; pass++) {
+      for (let i = 0; i < count - 1; i++) {
+        const j = i + 1;
+        // Also check the cell directly below (same column, next row)
+        const below = i + cols;
+        const neighbors = [j];
+        if (below < count) neighbors.push(below);
+
+        for (const n of neighbors) {
+          if (this.valuesMatch(values[i], values[n])) {
+            // Find a random distant position to swap with
+            const minDist = Math.max(3, Math.floor(cols / 2));
+            const candidates: number[] = [];
+            for (let k = 0; k < count; k++) {
+              if (Math.abs(k - i) >= minDist && Math.abs(k - n) >= minDist) {
+                // Only swap if it won't create a new adjacent match at the destination
+                if (!this.wouldCreateMatch(values, k, values[i], cols, count)) {
+                  candidates.push(k);
+                }
+              }
+            }
+            if (candidates.length > 0) {
+              const swapIdx = candidates[Math.floor(Math.random() * candidates.length)];
+              [values[i], values[swapIdx]] = [values[swapIdx], values[i]];
+            }
+          }
+        }
+      }
+    }
+
+    return values;
+  }
+
+  private valuesMatch(a: number, b: number): boolean {
+    return a === b || a + b === 10;
+  }
+
+  private wouldCreateMatch(values: number[], idx: number, newVal: number, cols: number, count: number): boolean {
+    // Check if placing newVal at idx would create an adjacent match
+    const adjacents = [idx - 1, idx + 1, idx - cols, idx + cols];
+    for (const adj of adjacents) {
+      if (adj >= 0 && adj < count) {
+        // Don't check across row boundaries for horizontal neighbors
+        if (adj === idx - 1 && idx % cols === 0) continue;
+        if (adj === idx + 1 && (idx + 1) % cols === 0) continue;
+        if (this.valuesMatch(newVal, values[adj])) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   private updateState() {
+    const isWin = this.checkWin();
+
+    if (isWin && !this.hasAwardedWin) {
+      this.hasAwardedWin = true;
+      this.stars += 1;
+      this.currentScore += this.stage * 25;
+      this.stage++;
+      this.savePersistentData();
+      this.updateStats();
+    }
+
+    this.saveGameState();
+
     this.gameStateSubject.next({
       grid: this.grid.map(r => r.map(c => ({ ...c }))),
       columns: this.COLS,
       score: this.currentScore,
-      time: 0, // Placeholder
-      isGameOver: this.checkWin()
+      time: 0,
+      isGameOver: isWin
     });
   }
 
@@ -144,12 +296,7 @@ export class GameService {
     const valueMatch = (v1 === v2) || (v1 + v2 === 10);
 
     if (!valueMatch) {
-      // Emit failed match animation
-      this.animationEventSubject.next({
-        type: 'failed-match',
-        data: { points: [p1, p2] },
-        timestamp: Date.now()
-      });
+      // Values don't match at all - no shake, just silently fail
       return false;
     }
 
@@ -182,26 +329,15 @@ export class GameService {
   }
 
   private removeTiles(p1: Point, p2: Point) {
-    const val1 = this.grid[p1.row][p1.col].value!;
-    const val2 = this.grid[p2.row][p2.col].value!;
-    
-    // Calculate score (base 10 points per match, +5 per combo)
+    // Calculate score (base 2 points per match, +1 per combo)
     this.comboCount++;
-    const baseScore = 10;
-    const comboBonus = Math.max(0, (this.comboCount - 1) * 5);
+    const baseScore = 2;
+    const comboBonus = Math.max(0, this.comboCount - 1);
     this.currentScore += baseScore + comboBonus;
-    
-    // Update all-time score if needed
-    if (this.currentScore > this.allTimeScore) {
-      this.allTimeScore = this.currentScore;
-      this.saveAllTimeScore();
-    }
-    
-    // Remove the tiles
+
+    // Remove the tiles (keep value for ghost number display)
     this.grid[p1.row][p1.col].isOccupied = false;
-    this.grid[p1.row][p1.col].value = null;
     this.grid[p2.row][p2.col].isOccupied = false;
-    this.grid[p2.row][p2.col].value = null;
 
     // Check if these numbers are now completely cleared from the board
     this.updateNumbersCleared();
@@ -281,16 +417,17 @@ export class GameService {
 
     if (L.length === 0) return;
 
-    let insertPos = -1;
+    // Find the position right after the last occupied cell in scan order
+    let lastOccupiedIdx = -1;
     const flattened = this.grid.flat();
     for (let i = flattened.length - 1; i >= 0; i--) {
-      if (!flattened[i].isOccupied && !flattened[i].wasEverOccupied) {
-        insertPos = i;
+      if (flattened[i].isOccupied) {
+        lastOccupiedIdx = i;
         break;
       }
     }
 
-    let startIndex = insertPos + 1;
+    let startIndex = lastOccupiedIdx + 1;
 
     const newPositions: Point[] = [];
     let currentIdx = startIndex;
@@ -308,7 +445,8 @@ export class GameService {
           this.grid.push(newRow);
         }
 
-        if (!this.grid[r][c].wasEverOccupied) {
+        // Place in any cell that is not currently occupied
+        if (!this.grid[r][c].isOccupied) {
           this.grid[r][c].value = val;
           this.grid[r][c].isOccupied = true;
           this.grid[r][c].wasEverOccupied = true;
@@ -333,13 +471,11 @@ export class GameService {
   private findPath(p1: Point, p2: Point): Path | null {
     // 0 turns: Straight (H, V, D)
     const straight = this.getStraightPath(p1, p2);
-    if (straight)
-      return straight;
+    if (straight) return straight;
 
     // Scan Order path (wrapping around rows)
     const scanOrder = this.getScanOrderPath(p1, p2);
-    if (scanOrder)
-      return scanOrder;
+    if (scanOrder) return scanOrder;
 
     return null;
   }
@@ -532,8 +668,8 @@ export class GameService {
   }
 
   public getHint(): [Point, Point] | null {
-    if (this.hintsRemaining <= 0) return null;
-    
+    if (this.stars < this.HINT_COST) return null;
+
     for (let r1 = 0; r1 < this.grid.length; r1++) {
       for (let c1 = 0; c1 < this.COLS; c1++) {
         if (!this.grid[r1][c1].isOccupied) continue;
@@ -545,14 +681,14 @@ export class GameService {
             const p1 = { row: r1, col: c1 };
             const p2 = { row: r2, col: c2 };
 
-            const cell1 = this.grid[r1][c1];
-            const cell2 = this.grid[r2][c2];
-            const v1 = cell1.value!;
-            const v2 = cell2.value!;
+            const v1 = this.grid[r1][c1].value!;
+            const v2 = this.grid[r2][c2].value!;
             if ((v1 === v2) || (v1 + v2 === 10)) {
               if (this.findPath(p1, p2)) {
-                this.hintsRemaining--;
+                this.stars -= this.HINT_COST;
+                this.savePersistentData();
                 this.updateStats();
+                this.hintSubject.next([p1, p2]);
                 return [p1, p2];
               }
             }
@@ -563,13 +699,20 @@ export class GameService {
     return null;
   }
   
+  public newGame(): void {
+    this.clearGameState();
+    this.addsRemaining = 3;
+    this.initGame();
+  }
+
   public getStats(): GameStats {
     return {
       currentScore: this.currentScore,
+      topScore: this.topScore,
       stage: this.stage,
       numbersCleared: { ...this.numbersCleared },
-      allTimeScore: this.allTimeScore,
-      hintsRemaining: this.hintsRemaining,
+      stars: this.stars,
+      hintCost: this.HINT_COST,
       addsRemaining: this.addsRemaining
     };
   }
