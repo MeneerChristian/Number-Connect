@@ -571,20 +571,9 @@ export class GameService {
     }
 
     // If we are here, all intermediate cells are empty.
-    // Return path including endpoints for consistency with other findPath methods
-    const fullPath = [p1];
-    // Add intermediate cells in correct direction
-    if (idx1 < idx2) {
-      for (let i = idx1 + 1; i < idx2; i++) {
-        fullPath.push({ row: Math.floor(i / this.COLS), col: i % this.COLS });
-      }
-    } else {
-      for (let i = idx1 - 1; i > idx2; i--) {
-        fullPath.push({ row: Math.floor(i / this.COLS), col: i % this.COLS });
-      }
-    }
-    fullPath.push(p2);
-    return fullPath;
+    // Only return endpoints - intermediate cells are just for validation,
+    // drawing through every scan-order cell would create a zigzag mess.
+    return [p1, p2];
   }
 
   private getStraightPath(p1: Point, p2: Point): Path | null {
