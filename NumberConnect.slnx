@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NumberConnect/NumberConnect.csproj" />
+  <Project Path="VideoAnalyzer/VideoAnalyzer.csproj" />
+</Solution>
