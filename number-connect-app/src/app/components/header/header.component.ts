@@ -1,16 +1,21 @@
-import { Component } from '@angular/core';
+import { Component, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GameService } from '../../services/game.service';
 import { Observable } from 'rxjs';
 import { GameStats } from '../../models/game.models';
+import { HelpModalComponent } from '../help-modal/help-modal.component';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, HelpModalComponent],
   template: `
     <header class="header">
-      <div class="spacer"></div>
+      <button #helpBtn class="header-button help-button" aria-label="How to play" (click)="openHelp()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+        </svg>
+      </button>
 
       <div class="score-container" *ngIf="stats$ | async as stats">
         <svg
@@ -46,6 +51,8 @@ import { GameStats } from '../../models/game.models';
         </div>
       </div>
     </div>
+
+    <app-help-modal *ngIf="showHelp" (closeHelp)="closeHelp()"></app-help-modal>
   `,
   styles: [
     `
@@ -80,8 +87,8 @@ import { GameStats } from '../../models/game.models';
         height: 24px;
       }
 
-      .spacer {
-        width: 48px;
+      .help-button {
+        color: var(--color-text-secondary);
       }
 
       .reset-button {
@@ -204,9 +211,26 @@ import { GameStats } from '../../models/game.models';
 export class HeaderComponent {
   stats$: Observable<GameStats>;
   showConfirm = false;
+  showHelp = false;
+
+  @ViewChild('helpBtn') helpBtn!: ElementRef;
 
   constructor(private gameService: GameService) {
     this.stats$ = this.gameService.stats$;
+  }
+
+  openHelp(): void {
+    this.showHelp = true;
+    setTimeout(() => {
+      (document.querySelector('.close-button') as HTMLElement)?.focus();
+    });
+  }
+
+  closeHelp(): void {
+    this.showHelp = false;
+    setTimeout(() => {
+      this.helpBtn?.nativeElement?.focus();
+    });
   }
 
   onResetClick(): void {
