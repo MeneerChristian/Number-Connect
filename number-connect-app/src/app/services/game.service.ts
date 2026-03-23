@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { Cell, Point, Path, GameState, AnimationEvent, MatchEvent, GameStats } from '../models/game.models';
+import { SeededRandom } from '../utils/seeded-random';
 
 @Injectable({
   providedIn: 'root'
@@ -8,6 +9,7 @@ import { Cell, Point, Path, GameState, AnimationEvent, MatchEvent, GameStats } f
 export class GameService {
   private readonly COLS = 9;
   private grid: Cell[][] = [];
+  private rng!: SeededRandom;
   
   // Stats tracking
   private currentScore = 0;
@@ -54,9 +56,23 @@ export class GameService {
   constructor() {
     this.loadPersistentData();
     this.initNumbersCleared();
+    this.initRng();
     if (!this.loadGameState()) {
       this.initGame();
     }
+  }
+
+  private initRng(): void {
+    try {
+      const savedSeed = localStorage.getItem('numberConnect_seed');
+      if (savedSeed) {
+        this.rng = new SeededRandom(parseInt(savedSeed, 10));
+        return;
+      }
+    } catch {
+      // localStorage not available
+    }
+    this.rng = new SeededRandom();
   }
 
   private loadPersistentData(): void {
@@ -159,6 +175,14 @@ export class GameService {
     this.hasAwardedWin = false;
     this.initNumbersCleared();
 
+    const seed = Date.now();
+    this.rng = new SeededRandom(seed);
+    try {
+      localStorage.setItem('numberConnect_seed', seed.toString());
+    } catch {
+      // localStorage not available
+    }
+
     const TOTAL_STARTING_CELLS = 42;
 
     // Generate values then shuffle to break up adjacent matches
@@ -199,7 +223,7 @@ export class GameService {
   private generateShuffledValues(count: number): number[] {
     const values: number[] = [];
     for (let i = 0; i < count; i++) {
-      values.push(Math.floor(Math.random() * 9) + 1);
+      values.push(Math.floor(this.rng.next() * 9) + 1);
     }
 
     // Multiple passes: swap adjacent matchable pairs to distant positions
@@ -226,7 +250,7 @@ export class GameService {
               }
             }
             if (candidates.length > 0) {
-              const swapIdx = candidates[Math.floor(Math.random() * candidates.length)];
+              const swapIdx = candidates[Math.floor(this.rng.next() * candidates.length)];
               [values[i], values[swapIdx]] = [values[swapIdx], values[i]];
             }
           }
@@ -305,6 +329,14 @@ export class GameService {
     this.hasAwardedWin = false;
     this.addsRemaining = 3;
     this.initNumbersCleared();
+
+    const seed = Date.now();
+    this.rng = new SeededRandom(seed);
+    try {
+      localStorage.setItem('numberConnect_seed', seed.toString());
+    } catch {
+      // localStorage not available
+    }
 
     const TOTAL_STARTING_CELLS = 42;
     const values = this.generateShuffledValues(TOTAL_STARTING_CELLS);
@@ -500,17 +532,18 @@ export class GameService {
 
     if (L.length === 0) return;
 
-    // Find the position right after the last occupied cell in scan order
-    let lastOccupiedIdx = -1;
+    // Find the first pristine empty cell in scan order
     const flattened = this.grid.flat();
-    for (let i = flattened.length - 1; i >= 0; i--) {
-      if (flattened[i].isOccupied) {
-        lastOccupiedIdx = i;
+    let firstPristineIdx = -1;
+    for (let i = 0; i < flattened.length; i++) {
+      if (!flattened[i].isOccupied && !flattened[i].wasEverOccupied) {
+        firstPristineIdx = i;
         break;
       }
     }
 
-    let startIndex = lastOccupiedIdx + 1;
+    // Start inserting from the first pristine cell; if none exist, append after last cell
+    let startIndex = firstPristineIdx === -1 ? flattened.length : firstPristineIdx;
 
     const newPositions: Point[] = [];
     let currentIdx = startIndex;
@@ -528,8 +561,8 @@ export class GameService {
           this.grid.push(newRow);
         }
 
-        // Place in any cell that is not currently occupied
-        if (!this.grid[r][c].isOccupied) {
+        // Only place in pristine cells (not occupied and never been occupied)
+        if (!this.grid[r][c].isOccupied && !this.grid[r][c].wasEverOccupied) {
           this.grid[r][c].value = val;
           this.grid[r][c].isOccupied = true;
           this.grid[r][c].wasEverOccupied = true;
@@ -564,32 +597,12 @@ export class GameService {
   }
 
   private getAttemptedPathCells(p1: Point, p2: Point): Point[] {
-    // Collect cells along attempted paths (excluding the two endpoints)
-    const attemptedCells: Point[] = [];
-    
-    // Try straight path first and collect blocked cells
-    const straightBlocked = this.getStraightPathBlocked(p1, p2);
-    if (straightBlocked.length > 0) {
-      attemptedCells.push(...straightBlocked);
+    // Pick the shortest geometrically valid path: straight first, then scan-order
+    const straightCells = this.getStraightPathBlocked(p1, p2);
+    if (straightCells.length > 0) {
+      return straightCells;
     }
-    
-    // Try scan order path and collect intermediate cells
-    const scanOrderBlocked = this.getScanOrderPathBlocked(p1, p2);
-    if (scanOrderBlocked.length > 0) {
-      attemptedCells.push(...scanOrderBlocked);
-    }
-    
-    // Remove duplicates and the endpoints
-    const unique = new Map<string, Point>();
-    attemptedCells.forEach(p => {
-      const key = `${p.row}-${p.col}`;
-      // Exclude the two endpoint cells
-      if (!((p.row === p1.row && p.col === p1.col) || (p.row === p2.row && p.col === p2.col))) {
-        unique.set(key, p);
-      }
-    });
-    
-    return Array.from(unique.values());
+    return this.getScanOrderPathBlocked(p1, p2);
   }
 
   private getStraightPathBlocked(p1: Point, p2: Point): Point[] {
@@ -609,7 +622,9 @@ export class GameService {
     let c = p1.col + stepC;
 
     while (r !== p2.row || c !== p2.col) {
-      blocked.push({ row: r, col: c });
+      if (this.grid[r]?.[c]?.isOccupied) {
+        blocked.push({ row: r, col: c });
+      }
       r += stepR;
       c += stepC;
     }
@@ -626,11 +641,13 @@ export class GameService {
 
     const blocked: Point[] = [];
     
-    // Collect all cells between startIdx and endIdx (exclusive of endpoints)
+    // Collect only occupied (blocking) cells between endpoints
     for (let i = startIdx + 1; i < endIdx; i++) {
       const r = Math.floor(i / this.COLS);
       const c = i % this.COLS;
-      blocked.push({ row: r, col: c });
+      if (this.grid[r][c].isOccupied) {
+        blocked.push({ row: r, col: c });
+      }
     }
 
     return blocked;
@@ -682,53 +699,6 @@ export class GameService {
     }
     path.push(p2);
     return path;
-  }
-
-  private getOneTurnPath(p1: Point, p2: Point): Path | null {
-    // Two possible corners: (p1.row, p2.col) and (p2.row, p1.col)
-    const corners = [
-      { row: p1.row, col: p2.col },
-      { row: p2.row, col: p1.col }
-    ];
-
-    for (const corner of corners) {
-      if (this.isCellEmpty(corner.row, corner.col)) {
-        const path1 = this.getStraightOrthogonalPath(p1, corner);
-        const path2 = this.getStraightOrthogonalPath(corner, p2);
-        if (path1 && path2) {
-          return [...path1, ...path2.slice(1)];
-        }
-      }
-    }
-    return null;
-  }
-
-  private getTwoTurnPath(p1: Point, p2: Point): Path | null {
-    // Two turns means p1 -> corner1 -> corner2 -> p2
-    // We can iterate through all possible corner1 that are reachable from p1 in a straight line
-
-    // Check all horizontal and vertical lines from p1
-    const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-    for (const [dr, dc] of directions) {
-      let r = p1.row + dr;
-      let c = p1.col + dc;
-      while (this.isCellWithinBounds(r, c) && this.isCellEmpty(r, c)) {
-        const corner1 = { row: r, col: c };
-        const oneTurn = this.getOneTurnPath(corner1, p2);
-        if (oneTurn) {
-          const path1 = this.getStraightOrthogonalPath(p1, corner1);
-          return [...path1!, ...oneTurn.slice(1)];
-        }
-        r += dr;
-        c += dc;
-      }
-    }
-    return null;
-  }
-
-  private getStraightOrthogonalPath(p1: Point, p2: Point): Path | null {
-    if (p1.row !== p2.row && p1.col !== p2.col) return null;
-    return this.getStraightPath(p1, p2);
   }
 
   private isCellEmpty(r: number, c: number): boolean {

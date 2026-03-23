@@ -15,7 +15,7 @@ import { GameStats } from '../../models/game.models';
   `,
   styles: [`
     .score-display {
-      height: 64px;
+      height: 80px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -23,12 +23,12 @@ import { GameStats } from '../../models/game.models';
     }
 
     .score-number {
-      font-size: 40px;
+      font-size: 48px;
       font-weight: 700;
       line-height: 1;
       letter-spacing: -0.5px;
-      color: var(--color-text-primary);
-      font-family: 'Roboto', sans-serif;
+      color: var(--color-primary);
+      font-family: var(--font-mono);
       transition: transform var(--duration-medium) ease-out;
     }
 

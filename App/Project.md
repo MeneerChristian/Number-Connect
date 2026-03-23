@@ -73,33 +73,14 @@ A valid path must:
 
 All intermediate cells along the line must be empty.
 
-#### B) One-Turn Path (L-shape, 1 turn)
-
-* Two straight orthogonal segments (horizontal + vertical)
-* The corner cell must be empty
-* All cells along both segments must be empty
-
-#### C) Two-Turn Path (Z / S shape, 2 turns)
-
-* Three straight orthogonal segments
-* Maximum of **two direction changes**
-* All intermediate cells must be empty
-* Path direction is unrestricted (all rotations and mirrors allowed)
-
-This includes cases like:
-
-* right → down → right
-* up → left → up
-* down → right → down, etc.
-
-#### D) Scan-Order Path (Row-major adjacency)
+#### B) Scan-Order Path (Row-major adjacency)
 
 Two tiles are considered connected if **all cells between them in row-major order** (top-to-bottom, left-to-right) are empty. This allows connecting the end of one row to the beginning of a subsequent row if the path between them is clear.
 
-### 3.4 Turn Limit
+### 3.4 Path Constraints
 
-* Paths requiring **more than two turns are invalid** (except for Scan-Order paths which follow the grid flow)
-* Diagonal movement is allowed **only** for straight-line (0-turn) paths
+* Only straight-line (0 turns) and scan-order paths are used
+* Diagonal movement is allowed **only** for straight-line paths
 
 ---
 
@@ -135,7 +116,7 @@ When a valid match is made:
 * A line is drawn between the two matched cells
 * The line follows the actual connection path that was used for the match
 * The line should be visually distinct (e.g., colored, animated)
-* Line rendering should respect the path shape (straight, L-shape, or Z-shape)
+* Line rendering should respect the path shape (straight or scan-order)
 
 ### 5.2 Animation Requirements
 
@@ -265,12 +246,13 @@ If required:
 
 ## 12. Technical Constraints (Non-Negotiable)
 
-* Matching must be **deterministic**
-* No randomness in core mechanics
+* Matching logic is **deterministic** (given a board state, valid moves are always the same)
+* Board generation uses a seedable PRNG for variety (reproducible given a seed)
+* No randomness in matching/connectivity rules
 * Connectivity must respect:
 
     * Empty-cell-only paths
-    * Maximum of 2 turns
+    * Straight lines (0 turns) or scan-order only
     * Diagonal only for straight paths
 * `wasEverOccupied` must be tracked per cell
 
@@ -282,8 +264,8 @@ This game is designed to:
 
 * Be easy to learn but hard to master
 * Reward spatial foresight
-* Avoid soft locks through deterministic recovery
-* Scale difficulty without introducing randomness
+* Avoid soft locks through deterministic matching rules
+* Scale difficulty with seedable PRNG board generation
 
 ---
 
@@ -608,7 +590,7 @@ Numbers: 'Roboto Mono', 'SF Mono', 'Consolas', monospace
 **Path Rendering:**
 - Canvas overlay or SVG layer
 - Connects cell centers
-- Follows actual path algorithm (straight, L-shape, Z-shape, scan-order)
+- Follows actual path algorithm (straight or scan-order)
 - Smooth curves on corners (optional, radius: 8px)
 
 ---
@@ -724,8 +706,10 @@ Numbers: 'Roboto Mono', 'SF Mono', 'Consolas', monospace
 - Border: 2px solid `#4CAF50`
 - Brief hold (100ms) before path animation
 
-**Selected (Second, Invalid Match):**
-- Red tint overlay: `rgba(255, 82, 82, 0.2)`
+**Selected (Second, Invalid Match - Path Blocked):**
+- Only the occupied cells blocking the shortest attempted path shake (not cleared/empty cells)
+- The two selected endpoint cells also shake
+- Shortest path priority: straight line first (if geometrically valid), then scan-order
 - Shake animation (3 quick oscillations)
 - Duration: 300ms
 - Return to normal state
@@ -741,11 +725,12 @@ Numbers: 'Roboto Mono', 'SF Mono', 'Consolas', monospace
 4. Cells fade out with scale down (200ms)
 5. Score increment animation (count up)
 
-**Failed Match:**
-1. Second cell shakes (300ms)
-2. Both cells flash red tint (200ms)
-3. Selection clears
-4. Cells return to normal
+**Failed Match (Path Blocked):**
+1. Both selected cells + only the occupied blocking cells on the shortest attempted path shake (300ms)
+2. Shortest path priority: straight line if geometrically valid, otherwise scan-order
+3. Cleared/empty cells along the path do NOT shake
+4. Selection clears
+5. Cells return to normal
 
 **No Available Moves:**
 - Global message overlay
@@ -986,9 +971,9 @@ background: rgba(255, 255, 255, 0.9);
 
 ### 14.12 Special States & Overlays
 
-#### 14.12.1 Win State Modal
+#### 14.12.1 Stage Complete Overlay
 - Full-screen overlay: `rgba(0, 0, 0, 0.7)`
-- Celebration animation: Confetti or stars
+- Auto-advances to next stage after 1.5s
 - Content card:
   - Background: `#FFFFFF`
   - Border-radius: 16px
@@ -997,11 +982,9 @@ background: rgba(255, 255, 255, 0.9);
   - Max-width: 320px
   - Centered
 - Elements:
-  - "🎉 Stage Complete!" heading (32px, bold)
-  - Final score (48px, `#2196F3`)
-  - Stars earned (visual, 3 stars max)
-  - "Next Stage" button (primary)
-  - "Restart" button (secondary)
+  - "Stage Complete!" title (32px, bold)
+  - Current score (48px, `#2196F3`)
+- No buttons (auto-advances); confetti, star rating, and manual buttons are future enhancements if desired
 
 #### 14.12.2 Pause/Settings Modal
 - Overlay: `rgba(0, 0, 0, 0.5)`

@@ -94,7 +94,7 @@ import { GameStats } from '../../models/game.models';
         gap: 6px;
         background: var(--color-surface);
         padding: 6px 16px;
-        border-radius: 20px;
+        border-radius: 16px;
         min-width: 72px;
         justify-content: center;
       }

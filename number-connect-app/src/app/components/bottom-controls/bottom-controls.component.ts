@@ -77,14 +77,16 @@ import { GameStats } from '../../models/game.models';
 
       .control-button:hover:not(:disabled) {
         transform: scale(0.95);
+        filter: brightness(1.1);
       }
 
       .control-button:active:not(:disabled) {
         transform: scale(0.9);
+        filter: brightness(1.2);
       }
 
       .control-button:disabled {
-        opacity: 0.4;
+        opacity: 0.6;
         cursor: not-allowed;
       }
 
@@ -94,8 +96,8 @@ import { GameStats } from '../../models/game.models';
       }
 
       .add-button {
-        background: var(--color-btn-add-bg);
-        color: var(--color-primary);
+        background: var(--color-primary);
+        color: #ffffff;
         box-shadow: var(--shadow-primary);
       }
 
@@ -105,8 +107,8 @@ import { GameStats } from '../../models/game.models';
       }
 
       .hint-button {
-        background: var(--color-surface);
-        color: var(--color-primary);
+        background: var(--color-warning);
+        color: #ffffff;
         box-shadow: var(--shadow-sm);
       }
 
@@ -133,11 +135,11 @@ import { GameStats } from '../../models/game.models';
       }
 
       .add-badge {
-        background: var(--color-primary);
+        background: var(--color-error);
       }
 
       .hint-badge {
-        background: #ffa000;
+        background: var(--color-success);
         gap: 1px;
       }
 

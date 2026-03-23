@@ -63,7 +63,7 @@ import { GameStats } from '../../models/game.models';
         justify-content: space-between;
         height: 72px;
         padding: 12px 16px;
-        background: var(--color-background);
+        background: var(--color-surface);
         border-bottom: 1px solid var(--color-border);
       }
 

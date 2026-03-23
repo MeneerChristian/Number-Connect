@@ -68,9 +68,7 @@ ng generate component component-name
 - Connection paths must pass only through empty cells
 - Allowed path shapes:
   - Straight line (0 turns): horizontal, vertical, or diagonal
-  - L-shape (1 turn): orthogonal segments only
-  - Z/S-shape (2 turns): three orthogonal segments
-  - Scan-order path: row-major adjacency
+  - Scan-order path: row-major adjacency (wrapping to next row)
 
 ### Board Model
 - **Grid**: Fixed 9 columns, dynamic rows (starts with 42 cells)
@@ -121,13 +119,14 @@ When adding numbers:
 ### Animations
 - Cell selection: 200ms scale(1.05) with blue highlight
 - Match success: 300ms path draw, 200ms fade out
-- Match failure: 300ms shake animation
+- Match failure: 300ms shake on selected cells + occupied blocking cells on shortest path only
 - All animations respect `prefers-reduced-motion`
 
 ## Design Constraints
 
-- Matching logic is **deterministic** (no randomness)
-- Maximum 2 turns for connection paths (except scan-order)
+- Matching logic is **deterministic** (given a board state, valid moves are always the same)
+- Board generation uses a seedable PRNG for variety (reproducible given a seed)
+- Connection paths: straight lines (0 turns) or scan-order only
 - Diagonal movement only for straight-line paths
 - Must track `wasEverOccupied` state per cell
 - Minimum touch targets: 48px × 48px

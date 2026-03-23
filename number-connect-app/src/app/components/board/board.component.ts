@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { GameService } from '../../services/game.service';
 import { GameState, Point, Cell, MatchEvent, Path } from '../../models/game.models';
 import { Observable, Subscription } from 'rxjs';
+import { RippleDirective } from '../../directives/ripple.directive';
 
 @Component({
   selector: 'app-board',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RippleDirective],
   template: `
     <div class="board-container" *ngIf="gameState$ | async as state">
       <div class="grid-wrapper" #gridWrapper>
@@ -28,6 +29,8 @@ import { Observable, Subscription } from 'rxjs';
               [class.animating]="isAnimating(rIdx, cIdx)"
               [class.failed-match]="isFailedMatch(rIdx, cIdx)"
               [class.new-number]="isNewNumber(rIdx, cIdx)"
+              [class.valid-match]="isValidMatch(rIdx, cIdx)"
+              appRipple
               (click)="onCellClick(cell)"
             >
               <span *ngIf="cell.isOccupied && cell.value !== null" class="cell-value">{{
@@ -89,267 +92,7 @@ import { Observable, Subscription } from 'rxjs';
       </div>
     </div>
   `,
-  styles: [
-    `
-      .board-container {
-        padding: 8px 16px;
-        padding-bottom: 88px;
-        background: var(--color-background);
-        display: flex;
-        justify-content: center;
-        position: relative;
-      }
-
-      .grid-wrapper {
-        position: relative;
-        width: 100%;
-        max-width: 450px;
-      }
-
-      .grid {
-        display: grid;
-        gap: 2px;
-        background: var(--color-border);
-        padding: 2px;
-        border-radius: var(--radius-sm);
-      }
-
-      .cell {
-        aspect-ratio: 1;
-        background: var(--color-background);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        user-select: none;
-        transition: all var(--duration-medium) ease;
-        position: relative;
-        min-height: 32px;
-      }
-
-      .cell-value {
-        font-size: clamp(20px, 8vw, 32px);
-        font-weight: 500;
-        font-family: var(--font-primary);
-        line-height: 1;
-      }
-
-      .cell-value.ghost {
-        color: var(--color-text-cleared);
-        font-weight: 400;
-        opacity: 0.35;
-      }
-
-      .cell.occupied {
-        background: var(--color-background);
-      }
-
-      .cell.occupied .cell-value {
-        color: var(--color-text-primary);
-      }
-
-      .cell.cleared {
-        background: var(--color-cleared-bg);
-      }
-
-      .cell.selected {
-        background: var(--color-selected-bg) !important;
-        border: 2px solid var(--color-selected-border);
-        transform: scale(1.05);
-        box-shadow: 0 2px 8px var(--color-selected-shadow);
-        z-index: 3;
-      }
-
-      .cell.selected .cell-value {
-        color: var(--color-primary);
-        font-weight: 600;
-      }
-
-      .cell.hint {
-        background: rgba(255, 235, 59, 0.3) !important;
-        border: 2px dashed var(--color-warning);
-        animation: hint-pulse 2s ease-in-out infinite;
-      }
-
-      .cell.animating {
-        animation: match-success 0.5s ease-out forwards;
-        z-index: 3;
-      }
-
-      .cell.failed-match {
-        animation: shake 0.4s ease;
-      }
-
-      .cell.new-number {
-        animation: pop-in 0.3s ease-out;
-      }
-
-      .path-overlay {
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: calc(100% - 4px);
-        height: calc(100% - 4px);
-        pointer-events: none;
-        z-index: 10;
-      }
-
-      .match-line {
-        stroke-dasharray: 10;
-        stroke-dashoffset: 10;
-        animation: draw-line 0.3s ease-out forwards;
-      }
-
-      /* Game Over */
-      .game-over-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: var(--color-overlay-bg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 100;
-        animation: fade-in 0.3s ease;
-      }
-
-      .game-over-card {
-        background: var(--color-card-bg);
-        border-radius: 16px;
-        padding: 32px;
-        text-align: center;
-        box-shadow: var(--shadow-lg);
-        animation: pop-in 0.4s ease-out;
-      }
-
-      .game-over-title {
-        font-size: 28px;
-        font-weight: 700;
-        color: var(--color-success);
-        margin-bottom: 8px;
-      }
-
-      .no-moves-title {
-        font-size: 28px;
-        font-weight: 700;
-        color: var(--color-error);
-        margin-bottom: 8px;
-      }
-
-      .game-over-score {
-        font-size: 20px;
-        font-weight: 600;
-        color: var(--color-text-primary);
-        margin-bottom: 24px;
-      }
-
-      .new-game-button {
-        background: var(--color-primary);
-        color: #fff;
-        border: none;
-        padding: 12px 32px;
-        border-radius: 24px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        box-shadow: var(--shadow-primary);
-        transition: all var(--duration-fast);
-      }
-
-      .new-game-button:hover {
-        transform: scale(0.95);
-      }
-
-      .new-game-button:active {
-        transform: scale(0.9);
-      }
-
-      /* Animations */
-      @keyframes fade-in {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-
-      @keyframes draw-line {
-        to {
-          stroke-dashoffset: 0;
-        }
-      }
-
-      @keyframes hint-pulse {
-        0%,
-        100% {
-          transform: scale(1);
-          box-shadow: 0 0 0 rgba(255, 193, 7, 0.5);
-        }
-        50% {
-          transform: scale(1.05);
-          box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
-        }
-      }
-
-      @keyframes match-success {
-        0% {
-          transform: scale(1);
-          opacity: 1;
-        }
-        50% {
-          transform: scale(1.2);
-          opacity: 0.8;
-        }
-        100% {
-          transform: scale(0.8);
-          opacity: 0;
-        }
-      }
-
-      @keyframes shake {
-        0%,
-        100% {
-          transform: translateX(0);
-        }
-        25% {
-          transform: translateX(-8px);
-        }
-        75% {
-          transform: translateX(8px);
-        }
-      }
-
-      @keyframes pop-in {
-        0% {
-          transform: scale(0);
-          opacity: 0;
-        }
-        50% {
-          transform: scale(1.1);
-        }
-        100% {
-          transform: scale(1);
-          opacity: 1;
-        }
-      }
-
-      /* Responsive adjustments */
-      @media (max-width: 360px) {
-        .cell-value {
-          font-size: clamp(18px, 7vw, 28px);
-        }
-      }
-
-      @media (min-width: 414px) {
-        .cell-value {
-          font-size: clamp(24px, 8vw, 36px);
-        }
-      }
-    `,
-  ],
+  styleUrl: './board.component.css',
 })
 export class BoardComponent implements OnInit, OnDestroy {
   @ViewChild('gridWrapper') gridWrapper!: ElementRef;
@@ -363,6 +106,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   animatingCells: Set<string> = new Set();
   failedMatchCells: Point[] | null = null;
   newNumberCells: Set<string> = new Set();
+  validMatchCell: { row: number; col: number } | null = null;
 
   private readonly cellUnit = 1;
   private readonly gapUnit = 0.048;
@@ -479,15 +223,23 @@ export class BoardComponent implements OnInit, OnDestroy {
       if (this.selectedCell.row === cell.row && this.selectedCell.col === cell.col) {
         this.selectedCell = null;
       } else {
-        const success = this.gameService.tryMatch(this.selectedCell, {
-          row: cell.row,
-          col: cell.col,
-        });
-        if (success) {
-          this.selectedCell = null;
-        } else {
-          this.selectedCell = { row: cell.row, col: cell.col };
-        }
+        const secondCell = { row: cell.row, col: cell.col };
+        const firstCell = this.selectedCell;
+
+        // Show green tint on the second cell before executing the match
+        this.validMatchCell = secondCell;
+        this.cdr.detectChanges();
+
+        setTimeout(() => {
+          this.validMatchCell = null;
+          const success = this.gameService.tryMatch(firstCell, secondCell);
+          if (success) {
+            this.selectedCell = null;
+          } else {
+            this.selectedCell = secondCell;
+          }
+          this.cdr.detectChanges();
+        }, 100);
       }
     } else {
       this.selectedCell = { row: cell.row, col: cell.col };
@@ -524,6 +276,10 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   isNewNumber(r: number, c: number): boolean {
     return this.newNumberCells.has(`${r}-${c}`);
+  }
+
+  isValidMatch(r: number, c: number): boolean {
+    return !!this.validMatchCell && this.validMatchCell.row === r && this.validMatchCell.col === c;
   }
 
   getCellId(r: number, c: number): string {
