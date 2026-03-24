@@ -60,7 +60,9 @@ import { RippleDirective } from '../../directives/ripple.directive';
               </feMerge>
             </filter>
           </defs>
+          <!-- Straight-line path: single polyline -->
           <polyline
+            *ngIf="!isScanOrderPath(matchPath)"
             [attr.points]="getPolylinePoints(matchPath)"
             class="match-line"
             fill="none"
@@ -71,6 +73,21 @@ import { RippleDirective } from '../../directives/ripple.directive';
             stroke-linejoin="round"
             filter="url(#glow)"
           />
+          <!-- Scan-order path: two separate horizontal line segments -->
+          <ng-container *ngIf="isScanOrderPath(matchPath)">
+            <polyline
+              *ngFor="let pts of getScanOrderPolylines(matchPath, state.columns)"
+              [attr.points]="pts"
+              class="match-line"
+              fill="none"
+              stroke="var(--color-primary)"
+              [attr.stroke-width]="0.06"
+              stroke-opacity="0.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              filter="url(#glow)"
+            />
+          </ng-container>
         </svg>
       </div>
 
@@ -304,5 +321,35 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   getPolylinePoints(path: Path): string {
     return path.map((p) => `${this.getPointX(p)},${this.getPointY(p)}`).join(' ');
+  }
+
+  isScanOrderPath(path: Path): boolean {
+    if (path.length !== 2) return false;
+    const [p1, p2] = path;
+    if (p1.row === p2.row) return false;
+    if (p1.col === p2.col) return false;
+    const dr = Math.abs(p2.row - p1.row);
+    const dc = Math.abs(p2.col - p1.col);
+    return dr !== dc;
+  }
+
+  getScanOrderPolylines(path: Path, cols: number): string[] {
+    const [p1, p2] = path;
+    const idx1 = p1.row * cols + p1.col;
+    const idx2 = p2.row * cols + p2.col;
+    const start = idx1 < idx2 ? p1 : p2;
+    const end = idx1 < idx2 ? p2 : p1;
+
+    const totalW = cols * this.cellUnit + (cols - 1) * this.gapUnit;
+
+    const x1 = this.getPointX(start);
+    const y1 = this.getPointY(start);
+    const x2 = this.getPointX(end);
+    const y2 = this.getPointY(end);
+
+    return [
+      `${x1},${y1} ${totalW},${y1}`,
+      `0,${y2} ${x2},${y2}`,
+    ];
   }
 }
