@@ -90,12 +90,14 @@ import { GameStats } from '../../models/game.models';
         align-items: center;
         gap: 6px;
         flex: 1;
-        padding: 0 12px;
+        min-width: 0;
+        padding: 0 8px;
       }
 
       .numbers-cleared-label {
         font-size: 11px;
         color: var(--color-text-secondary);
+        white-space: nowrap;
       }
 
       .numbers-tracker {
@@ -113,6 +115,40 @@ import { GameStats } from '../../models/game.models';
         font-weight: 600;
         color: var(--color-text-primary);
         transition: all var(--duration-medium);
+      }
+
+      @media (max-width: 390px) {
+        .stats-bar {
+          padding: 8px 12px;
+        }
+
+        .numbers-cleared-section {
+          gap: 4px;
+          padding: 0 4px;
+        }
+
+        .numbers-tracker {
+          gap: 1px;
+        }
+
+        .number-item {
+          width: 18px;
+          height: 18px;
+          font-size: 11px;
+        }
+
+        .check-icon {
+          width: 13px;
+          height: 13px;
+        }
+
+        .stage-number {
+          font-size: 18px;
+        }
+
+        .score-value {
+          font-size: 14px;
+        }
       }
 
       .number-item.cleared {
