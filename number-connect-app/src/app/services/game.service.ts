@@ -743,8 +743,10 @@ export class GameService {
   
   public newGame(): void {
     this.clearGameState();
+    this.stage = 1;
     this.addsRemaining = 3;
     this.initGame();
+    this.savePersistentData();
   }
 
   public getStats(): GameStats {
